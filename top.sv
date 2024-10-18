@@ -157,15 +157,25 @@ class driver;
     $display("[DRV] : DATA READ");  
     @(posedge fif.clock);
   endtask
+
+  task write_till_full();
+    // Repeat until "full" flag is on
+    while (fif.full != 1) begin
+      write();
+    end
+  endtask
+
+  task read_till_empty();
+    while (fif.empty != 1) begin
+      read();
+    end
+  endtask
   
   // Apply random stimulus to the DUT
   task run();
     forever begin
-      mbx.get(datac);  
-      if (datac.oper == 1'b1)
-        write();
-      else
-        read();
+      write_till_full();
+      read_till_empty();
     end
   endtask
   
@@ -332,7 +342,7 @@ module tb;
     
   initial begin
     env = new(fif);
-    env.gen.count = 10;
+    env.gen.count = 48;
     env.run();
   end
     
