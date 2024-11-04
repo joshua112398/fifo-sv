@@ -1,7 +1,65 @@
 `timescale 1ns / 1ns
 
+module FIFO #(parameter DATA_WIDTH=8) (
+            input clk, rst_n, wr_en, rd_en,
+            input [DATA_WIDTH-1:0] d_in, 
+            output reg [DATA_WIDTH-1:0] d_out,
+            output empty, full
+          );
+  
+  // Pointers for write and read operations
+  reg [3:0] w_ptr = 0, r_ptr = 0;
+  
+  // Counter for tracking the number of elements in the FIFO
+  reg [4:0] cnt = 0;
+  
+  // Memory array to store data
+  reg [DATA_WIDTH-1:0] mem [15:0];
+ 
+  always @(posedge clk)
+    begin
+      if (!rst_n == 1'b1)
+        begin
+          // Reset the pointers and counter when the reset signal is asserted
+          w_ptr <= 0;
+          r_ptr <= 0;
+          cnt  <= 0;
+        end
+      else if (wr_en && !full)
+        begin
+          // Write data to the FIFO if it's not full
+          mem[w_ptr] <= d_in;
+          w_ptr      <= w_ptr + 1;
+          cnt       <= cnt + 1;
+        end
+      else if (rd_en && !empty)
+        begin
+          // Read data from the FIFO if it's not empty
+          d_out <= mem[r_ptr];
+          r_ptr <= r_ptr + 1;
+          cnt  <= cnt - 1;
+        end
+    end
+ 
+  // Determine if the FIFO is empty or full
+  assign empty = (cnt == 0) ? 1'b1 : 1'b0;
+  assign full  = (cnt == 16) ? 1'b1 : 1'b0;
+ 
+endmodule
+
+///////////////////////////////////////////////////
+
+interface fifo_if (input logic clk);
+    logic rst_n, wr_en, rd_en;
+    logic [DATA_WIDTH-1:0] d_in, d_out;
+    logic empty, full;
+endinterface
+
+
+/* OLD VERSION 
+
 module FIFO(input clk, rst, wr, rd,
-            input [7:0] din, output reg [7:0] dout,
+            input [7:0] d_in, output reg [7:0] d_out,
             output empty, full);
   
   // Pointers for write and read operations
@@ -25,14 +83,14 @@ module FIFO(input clk, rst, wr, rd,
       else if (wr && !full)
         begin
           // Write data to the FIFO if it's not full
-          mem[wptr] <= din;
+          mem[wptr] <= d_in;
           wptr      <= wptr + 1;
           cnt       <= cnt + 1;
         end
       else if (rd && !empty)
         begin
           // Read data from the FIFO if it's not empty
-          dout <= mem[rptr];
+          d_out <= mem[rptr];
           rptr <= rptr + 1;
           cnt  <= cnt - 1;
         end
@@ -55,7 +113,7 @@ interface fifo_if;
   logic [7:0] data_out;        // Data output
   logic rst;                   // Reset signal
  
-endinterface
+end_interface
 
 
 
@@ -207,7 +265,7 @@ class monitor;
       tr.data_out = fif.data_out;
     
       mbx.put(tr);
-      $display("[MON] : Wr:%0d rd:%0d din:%0d dout:%0d full:%0d empty:%0d", tr.wr, tr.rd, tr.data_in, tr.data_out, tr.full, tr.empty);
+      $display("[MON] : Wr:%0d rd:%0d d_in:%0d d_out:%0d full:%0d empty:%0d", tr.wr, tr.rd, tr.data_in, tr.data_out, tr.full, tr.empty);
     end
     
   endtask
@@ -221,7 +279,7 @@ class scoreboard;
   mailbox #(transaction) mbx;  // Mailbox for communication
   transaction tr;          // Transaction object for monitoring
   event next;
-  bit [7:0] din[$];       // Array to store written data
+  bit [7:0] d_in[$];       // Array to store written data
   bit [7:0] temp;         // Temporary data storage
   int err = 0;            // Error count
   
@@ -232,11 +290,11 @@ class scoreboard;
   task run();
     forever begin
       mbx.get(tr);
-      $display("[SCO] : Wr:%0d rd:%0d din:%0d dout:%0d full:%0d empty:%0d", tr.wr, tr.rd, tr.data_in, tr.data_out, tr.full, tr.empty);
+      $display("[SCO] : Wr:%0d rd:%0d d_in:%0d d_out:%0d full:%0d empty:%0d", tr.wr, tr.rd, tr.data_in, tr.data_out, tr.full, tr.empty);
       
       if (tr.wr == 1'b1) begin
         if (tr.full == 1'b0) begin
-          din.push_front(tr.data_in);
+          d_in.push_front(tr.data_in);
           $display("[SCO] : DATA STORED IN QUEUE :%0d", tr.data_in);
         end
         else begin
@@ -247,7 +305,7 @@ class scoreboard;
     
       if (tr.rd == 1'b1) begin
         if (tr.empty == 1'b0) begin  
-          temp = din.pop_back();
+          temp = d_in.pop_back();
           
           if (tr.data_out == temp)
             $display("[SCO] : DATA MATCH");
@@ -352,3 +410,5 @@ module tb;
   end
    
 endmodule
+
+*/
